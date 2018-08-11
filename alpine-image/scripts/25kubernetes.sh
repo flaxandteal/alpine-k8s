@@ -76,11 +76,12 @@ start_pre() {
 
 start() {
   ebegin "Starting Kubelet"
-  #start-stop-daemon --background --start --exec /usr/local/bin/kubelet --make-pidfile --pidfile /run/kubelet.pid --stdout /var/log/kubelet.log --stderr /var/log/kubelet.log    -- --require-kubeconfig --kubeconfig=/etc/kubernetes/kubelet.conf --pod-manifest-path=/etc/kubernetes/manifests --allow-privileged=true --network-plugin=cni --cni-conf-dir=/etc/cni/net.d --cni-bin-dir=/opt/cni/bin --cluster-dns=10.96.0.10 --cluster-domain=cluster.local --v=4 --hostname-override=MY_HOSTNAME --node-ip=MY_IPADDRESS
+  #start-stop-daemon --background --start --exec /usr/local/bin/kubelet --make-pidfile --pidfile /run/kubelet.pid --stdout /var/log/kubelet.log --stderr /var/log/kubelet.log    -- --kubeconfig=/etc/kubernetes/kubelet.conf --pod-manifest-path=/etc/kubernetes/manifests --allow-privileged=true --network-plugin=cni --cni-conf-dir=/etc/cni/net.d --cni-bin-dir=/opt/cni/bin --cluster-dns=10.96.0.10 --cluster-domain=cluster.local --v=4 --hostname-override=MY_HOSTNAME --node-ip=MY_IPADDRESS
   MY_HOSTNAME=\`hostname\`
   MY_IP=\`nslookup \$MY_HOSTNAME 2>&1 | grep '^Address' | awk '{print \$3}'\`
   /usr/bin/docker run -d --restart=on-failure --name kubelet \
        --volume=/:/rootfs:ro \
+       --volume=/bin/busybox:/bin/busybox:ro \
        --volume=/sys:/sys:ro \
        --volume=/dev:/dev \
        --volume=/var/lib/docker/:/var/lib/docker:rw \
@@ -92,7 +93,7 @@ start() {
        /hyperkube kubelet \
         --containerized \
         --address="0.0.0.0" \
-        --require-kubeconfig --kubeconfig=/etc/kubernetes/kubelet.conf \
+        --kubeconfig=/etc/kubernetes/kubelet.conf \
         --pod-manifest-path=/etc/kubernetes/manifests \
         --allow-privileged=true \
         --network-plugin=cni \

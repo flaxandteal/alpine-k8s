@@ -49,7 +49,7 @@ if [ -f "cluster-token" ]; then
   # the second half of the cluster token can be used as a user token!!!
   # this behaviour will change in the future.
   TOKEN=${CLUSTER_TOKEN##*.}
-  ./${BINNAME} --kubeconfig=admin.config config set-cluster master1 --insecure-skip-tls-verify=true --server=https://10.250.250.2:6443 --api-version=v1
+  ./${BINNAME} --kubeconfig=admin.config config set-cluster master1 --insecure-skip-tls-verify=true --server=https://10.250.250.11:6443
   ./${BINNAME} --kubeconfig=admin.config config set-credentials admin --token $TOKEN
   ./${BINNAME} --kubeconfig=admin.config config set-context default --cluster master1 --user admin
   ./${BINNAME} --kubeconfig=admin.config config use-context default

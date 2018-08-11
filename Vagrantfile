@@ -10,7 +10,7 @@ $etcd_memory=1024
 $master_cpu=1
 $master_memory=1024
 $minion_cpu=1
-$minion_memory=2048
+$minion_memory=1024
 
 CONFIG = File.expand_path("config.rb")
 if File.exist?(CONFIG)
@@ -52,7 +52,7 @@ config.ssh.insert_key = false
 #  v.functional_vboxsf     = false
 #end
 config.vm.synced_folder ".", "/vagrant", disabled: true
-config.vm.box = "dmcc/alpine-3.6.0-docker-17.05.0-kubernetes-#{$kubernetes_version}"
+config.vm.box = "dmcc/alpine-3.4.5-docker-1.12.3-kubernetes-v1.4.4" # TODO: change back
 
   # disable vbguest updates as this does not work on alpine.
   if Vagrant.has_plugin?("vagrant-vbguest")
@@ -65,6 +65,11 @@ config.vm.box = "dmcc/alpine-3.6.0-docker-17.05.0-kubernetes-#{$kubernetes_versi
       etcd.vm.provider :virtualbox do |vb|
         vb.customize ["modifyvm", :id, "--memory", $etcd_memory]
         vb.customize ["modifyvm", :id, "--cpus", $etcd_cpu]   
+      end
+
+      etcd.vm.provider :libvirt do |libvirt|
+        libvirt.memory = $etcd_memory
+        libvirt.cpus = $etcd_cpu
       end
 
       etcdIP = etcdIP(i)
@@ -83,6 +88,11 @@ config.vm.box = "dmcc/alpine-3.6.0-docker-17.05.0-kubernetes-#{$kubernetes_versi
         vb.customize ["modifyvm", :id, "--cpus", $master_cpu]   
       end
 
+      master.vm.provider :libvirt do |libvirt|
+        libvirt.memory = $master_memory
+        libvirt.cpus = $master_cpu
+      end
+
       masterIP = masterIP(i)
       master.vm.network :private_network, ip: masterIP, auto_config: false
 
@@ -97,6 +107,11 @@ config.vm.box = "dmcc/alpine-3.6.0-docker-17.05.0-kubernetes-#{$kubernetes_versi
       minion.vm.provider :virtualbox do |vb|
         vb.customize ["modifyvm", :id, "--memory", $minion_memory]
         vb.customize ["modifyvm", :id, "--cpus", $minion_cpu]   
+      end
+
+      minion.vm.provider :libvirt do |libvirt|
+        libvirt.memory = $minion_memory
+        libvirt.cpus = $minion_cpu
       end
 
       minionIP = minionIP(i)

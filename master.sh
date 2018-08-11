@@ -89,8 +89,6 @@ etcd:
   endpoints:
 $(for ep in ${ETCD_ENDPOINTS}; do echo -e "  - ${ep}"; done)
 kubernetesVersion: ${KUBERNETES_VERSION} 
-secrets:
-  givenToken: ${KUBE_TOKEN}
 EOT
 
 echo "Starting kubelet..."
@@ -105,48 +103,50 @@ echo ""
 echo "Kubeadm settings: -"
 cat /etc/kubernetes/kubeadm.conf
 echo ""
+echo "Running: kubeadm preload"
+kubeadm config images pull --config /etc/kubernetes/kubeadm.conf | tee /root/kubeadm_init.log
 echo "Running: kubeadm"
-kubeadm init --config /etc/kubernetes/kubeadm.conf | tee /root/kubeadm_init.log
+kubeadm init --ignore-preflight-errors=all --config /etc/kubernetes/kubeadm.conf | tee /root/kubeadm_init.log
+kubeadm token create ${KUBE_TOKEN}
 
 #copy kubeconfig for root's usage
 mkdir -p /root/.kube
 cp /etc/kubernetes/admin.conf /root/.kube/config
 
 echo "Patching the apiserver manifest to advertise the master on the right address..."
-sed -e 's/"--allow-privileged",/"--allow-privileged","--advertise-address='${MY_IP}'",/' -i /etc/kubernetes/manifests/kube-apiserver.json
+sed -e 's/advertise-address.*/advertise-address='${MY_IP}'/' -i /etc/kubernetes/manifests/kube-apiserver.yaml
 echo "Set the right number of master servers..."
-sed -e 's/"--v=2",/"--v=2", "--apiserver-count='${MASTER_COUNT}'",/' -i /etc/kubernetes/manifests/kube-apiserver.json
+sed -e 's/^\(.*\)\(advertise-address.*\)$/\1\2\n\1apiserver-count='${MASTER_COUNT}'/' -i /etc/kubernetes/manifests/kube-apiserver.yaml
 
 echo "Preparing Addons..."
 mkdir -p /etc/kubernetes/addons
 
 echo "Preparing SkyDNS as addon"
-install_addon https://raw.githubusercontent.com/kubernetes/kubernetes/master/cluster/addons/dns/kubedns-controller.yaml.sed kubedns-controller.yaml
-sed -e 's/\$DNS_DOMAIN\.?/'${CLUSTER_DOMAIN}'/g' -i /etc/kubernetes/addons/kubedns-controller.yaml
-install_addon https://raw.githubusercontent.com/kubernetes/kubernetes/master/cluster/addons/dns/kubedns-svc.yaml.sed kubedns-svc.yaml
-sed -e 's/\$DNS_SERVER/'${CLUSTER_DNS}'/g' -i /etc/kubernetes/addons/kubedns-svc.yaml
+install_addon https://raw.githubusercontent.com/kubernetes/kubernetes/master/cluster/addons/dns/kube-dns/kube-dns.yaml.sed kube-dns.yaml
+sed -e 's/\$DNS_DOMAIN\.?/'${CLUSTER_DOMAIN}'/g' -i /etc/kubernetes/addons/kube-dns3.yaml
+sed -e 's/\$DNS_SERVER/'${CLUSTER_DNS}'/g' -i /etc/kubernetes/addons/kube-dns0.yaml
 
 echo "Preparing canal as addon"
-install_addon https://raw.githubusercontent.com/tigera/canal/master/k8s-install/kubeadm/canal.yaml canal.yaml
+install_addon https://docs.projectcalico.org/v3.1/getting-started/kubernetes/installation/hosted/canal/canal.yaml canal.yaml
 # change the interface to eth1
 sed -e 's/canal_iface: ""/canal_iface: "eth1"/' -i /etc/kubernetes/addons/canal0.yaml
 
 echo "Preparing Kubernetes Dashboard as addon"
-install_addon https://rawgit.com/kubernetes/dashboard/master/src/deploy/kubernetes-dashboard.yaml kubernetes-dashboard.yaml
-
-echo "Adding NGINX ingress addon"
-#install_addon https://raw.githubusercontent.com/kubernetes/contrib/master/ingress/controllers/nginx/examples/daemonset/as-daemonset.yaml nginx-ingress.yaml
-install_addon https://raw.githubusercontent.com/containous/traefik/master/examples/k8s/traefik.yaml ingress-traefik.yaml
-install_addon https://raw.githubusercontent.com/containous/traefik/master/examples/k8s/ui.yaml ingress-ui.yaml
-sed -e 's/traefik-ui.local/ingress-ui.k8s.local/g' -i /etc/kubernetes/addons/ingress-ui2.yaml
-
-#echo "Preparing Heapster, InfluxDB and Grafana as addons"
-#for MANIFEST in heapster-deployment.yaml heapster-service.yaml grafana-deployment.yaml grafana-service.yaml influxdb-deployment.yaml influxdb-service.yaml
-#do
-#  install_addon "https://raw.githubusercontent.com/kubernetes/heapster/master/deploy/kube-config/influxdb/${MANIFEST}" "${MANIFEST}"
-#done
+install_addon https://raw.githubusercontent.com/kubernetes/dashboard/master/src/deploy/recommended/kubernetes-dashboard.yaml kubernetes-dashboard.yaml
+#
+#echo "Adding NGINX ingress addon"
+##install_addon https://raw.githubusercontent.com/kubernetes/contrib/master/ingress/controllers/nginx/examples/daemonset/as-daemonset.yaml nginx-ingress.yaml
+#install_addon https://raw.githubusercontent.com/containous/traefik/master/examples/k8s/traefik.yaml ingress-traefik.yaml
+#install_addon https://raw.githubusercontent.com/containous/traefik/master/examples/k8s/ui.yaml ingress-ui.yaml
+#sed -e 's/traefik-ui.local/ingress-ui.k8s.local/g' -i /etc/kubernetes/addons/ingress-ui2.yaml
+#
+##echo "Preparing Heapster, InfluxDB and Grafana as addons"
+##for MANIFEST in heapster-deployment.yaml heapster-service.yaml grafana-deployment.yaml grafana-service.yaml influxdb-deployment.yaml influxdb-service.yaml
+##do
+##  install_addon "https://raw.githubusercontent.com/kubernetes/heapster/master/deploy/kube-config/influxdb/${MANIFEST}" "${MANIFEST}"
+##done
 
 # Install the addon manager as a direct kubelet manifest
 echo "Installing Addon Manager - to install/manage addons"
-curl -k -L -s https://raw.githubusercontent.com/kubernetes/kubernetes/master/cluster/saltbase/salt/kube-addons/kube-addon-manager.yaml >/etc/kubernetes/manifests/addon-manager.yaml
+curl -k -L -s https://github.com/kubernetes/kubernetes/blob/master/cluster/gce/manifests/kube-addon-manager.yaml >/etc/kubernetes/manifests/addon-manager.yaml
 

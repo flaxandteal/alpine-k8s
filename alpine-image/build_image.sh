@@ -238,8 +238,8 @@ mkdir -p ${KUBERNETES_BINARIES}
 export KUBERNETES_BINARIES
 echo -e "\nKubernetes binaries will be deployed from ${KUBERNETES_BINARIES}"
 
-CNI_GOLANG_VER=`cat ${PWD}/kubernetes-${KUBERNETES_VERSION#v}/build/cni/Makefile | grep "^GOLANG_VERSION=" | sed -e 's/GOLANG_VERSION=//'` 
-#echo "Building with CNI with golang version: ${CNI_GOLANG_VER}"
+CNI_GOLANG_VER=`cat ${PWD}/kubernetes-${KUBERNETES_VERSION#v}/test/images/Makefile | grep "^GOLANG_VERSION=" | sed -e 's/GOLANG_VERSION=//'` 
+echo "Building with CNI with golang version: ${CNI_GOLANG_VER}"
 
 echo -e "\nDo we need to build our Kubernetes build container 'kubebuild:alpine${CNI_GOLANG_VER}'?"
 if ! docker images | grep -e "kubebuild:alpine${CNI_GOLANG_VER}"
@@ -268,17 +268,18 @@ else
 fi
 
 # Need to build cni separately
-#echo "Checking for build of cni networking..."
-#if ! [[ -f "${KUBERNETES_BINARIES}/cni.tar.gz" ]]; then
+echo "Checking for build of cni networking..."
+if ! [[ -f "${KUBERNETES_BINARIES}/cni.tar.gz" ]]; then
 #  RETURN=${PWD}
 #  cd kubernetes-${KUBERNETES_VERSION#v}/build/cni
 #  sed -e 's/golang:[0-9.]*/kubebuild:alpine/' -i Makefile 
 #  make
 #  cd $RETURN 
-#  cp kubernetes-${KUBERNETES_VERSION#v}/build/cni/output/cni-amd64-*.tar.gz  ${KUBERNETES_BINARIES}/cni.tar.gz
-#else
-#  echo -e "Kubernetes cni binaries already built."
-#fi
+  CNI_DOWNLOAD_URL=$(curl https://api.github.com/repos/containernetworking/cni/releases/latest -H "Content-Type: application/json" | grep 'download.*".*amd64.*tgz"' | sed 's/^.*\(https.*\)"$/\1/')
+  curl "$CNI_DOWNLOAD_URL" -o ${KUBERNETES_BINARIES}/cni.tar.gz
+else
+  echo -e "Kubernetes cni binaries already built."
+fi
 
 echo -e "\nChecking Kubernetes Components to build:-"
 for COMPONENT in ${KUBERNETES_COMPONENTS}; do
@@ -301,7 +302,7 @@ if [[ "${AWS}" == "true" ]]; then
 elif [[ "${ATLAS}" == "true" ]]; then
   PACKER_TEMPLATE="alpine-kubernetes-atlas.json"
 else
-  PACKER_TEMPLATE="alpine-kubernetes.json"
+  PACKER_TEMPLATE="alpine-kubernetes-qemu.json"
 fi
 
 if [[ "${ATLAS}" == "true" ]]

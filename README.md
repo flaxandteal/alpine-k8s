@@ -111,3 +111,20 @@ Without breaking the running kubectl browse to http://localhost:8001/ui/ in your
 2. No Ingress.
 3. No physical volumes.
 4. No authentication or quotas.
+
+### libvirt
+
+```
+apt-get build-dep vagrant ruby-libvirt
+apt-get install qemu libvirt-bin ebtables dnsmasq
+apt-get install libxslt-dev libxml2-dev libvirt-dev zlib1g-dev ruby-dev
+sudo apt install -y libvirt-dev libxml2-dev
+vagrant plugin install vagrant-libvirt
+vagrant plugin install vagrant-alpine
+sudo service libvirt-bin restart
+sudo service libvirt-guests restart
+sudo service virtlogd stop
+sudo service virtlogd start
+aa-complain /etc/apparmor.d/libvirt/libvirt-ebbc80d1-7d74-4277-9604-78fa421112b
+sudo vagrant up --provider libvirt
+```

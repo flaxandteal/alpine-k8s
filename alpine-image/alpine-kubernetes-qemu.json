@@ -1,0 +1,101 @@
+{
+  "description": "Build base Alpine Linux x86_64 with Docker, Kubelet, kubectl and kubeadm",
+  "variables": {
+      "alpine_version": "{{env `ALPINE_VERSION`}}",
+      "docker_version": "{{env `DOCKER_VERSION`}}",
+      "kubernetes_version": "{{env `KUBERNETES_VERSION`}}",
+      "alpine_latest_iso": "{{env `ALPINE_LATEST_ISO`}}",
+      "alpine_latest_sha": "{{env `ALPINE_LATEST_SHA256`}}",
+      "kubernetes_binaries": "{{env `KUBERNETES_BINARIES`}}"
+  },
+  "provisioners": [
+    {
+      "type": "shell",
+      "scripts": [
+        "scripts/00base.sh",
+        "scripts/01alpine.sh",
+        "scripts/01networking.sh",
+        "scripts/02sshd.sh",
+        "scripts/03vagrant.sh",
+        "scripts/04sudoers.sh",
+        "scripts/05cron.sh",
+        "scripts/20docker.sh"
+      ],
+      "environment_vars": [
+        "DOCKER_VERSION={{user `docker_version`}}",
+        "KUBERNETES_VERSION={{user `kubernetes_version`}}"
+      ]
+    },
+    {
+      "pause_before": "30s",
+      "type": "file",
+      "source": "{{user `kubernetes_binaries`}}kubectl",
+      "destination": "/usr/local/bin/kubectl"
+    },
+    {
+      "type": "file",
+      "source": "{{user `kubernetes_binaries`}}kubeadm",
+      "destination": "/usr/local/bin/kubeadm"
+    },
+    {
+      "type": "shell",
+      "scripts": [
+        "scripts/25kubernetes.sh",
+        "scripts/90virtualbox.sh",
+        "scripts/99minimize.sh"
+      ],
+      "environment_vars": [
+        "DOCKER_VERSION={{user `docker_version`}}",
+        "KUBERNETES_VERSION={{user `kubernetes_version`}}"
+      ]
+    }
+  ],
+  "builders": [
+    {
+      "type": "qemu",
+
+      "headless": false,
+      "disk_size": 10240,
+      "http_directory": "http",
+
+      "iso_url": "{{user `alpine_latest_iso`}}",
+      "iso_checksum": "{{user `alpine_latest_sha`}}",
+      "iso_checksum_type": "sha256",
+
+      "communicator": "ssh",
+      "ssh_username": "root",
+      "ssh_password": "vagrant",
+      "ssh_wait_timeout": "10m",
+      "shutdown_command": "/sbin/poweroff",
+
+      "boot_wait": "20s",
+      "boot_command": [
+        "root<enter><wait>",
+        "ifconfig eth0 up && udhcpc -i eth0<enter><wait>",
+        "wget http://{{ .HTTPIP }}:{{ .HTTPPort }}/answers<enter><wait>",
+        "setup-alpine -f answers<enter><wait>",
+        "vagrant<enter><wait>",
+        "vagrant<enter><wait>",
+        "<wait10>",
+        "y<enter>",
+        "<wait10><wait10><wait10><wait10><wait10><wait10><wait10><wait10><wait10><wait10><wait10><wait10><wait10><wait10>",
+        "rc-service sshd stop<enter>",
+        "mount /dev/vda2 /mnt<enter>",
+        "echo 'PermitRootLogin yes' >> /mnt/etc/ssh/sshd_config<enter>",
+        "umount /mnt<enter>",
+        "reboot<enter>"
+      ],
+
+      "disk_interface": "virtio"
+
+    }
+  ],
+  "post-processors": [
+    [{
+      "type": "vagrant",
+      "keep_input_artifact": false,
+      "compression_level": 9,
+      "output": "alpine-{{user `alpine_version`}}-docker-{{user `docker_version`}}-kubernetes-{{user `kubernetes_version`}}.box"
+    }]
+  ]
+}

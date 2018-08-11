@@ -11,13 +11,16 @@ hostname ${SET_HOSTNAME}
 echo "My IP Address is $MY_IP"
 
 echo "Setting up the private 10.250.250.0 network"
-cat <<EOT >>/etc/network/interfaces
+if grep -v --quiet eth1 /etc/network/interfaces
+then
+    cat <<EOT >>/etc/network/interfaces
 auto eth1
 iface eth1 inet static
     address ${MY_IP}
     netmask 255.255.255.0
     hostname ${SET_HOSTNAME}
 EOT
+fi
 /etc/init.d/networking restart
 
 echo "Route Kubernetes services network 10.96.0.0/12 via eth1 by default"
